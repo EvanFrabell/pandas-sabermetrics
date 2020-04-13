@@ -1,7 +1,7 @@
 from functools import reduce
 import pandas as pd
 
-pd.options.display.max_columns = None
+# pd.options.display.max_columns = None
 # pd.options.display.max_rows = 100
 
 # The database is comprised of the following main tables:
@@ -93,7 +93,8 @@ df['MOPS'] = (df['MOB'] + df['MSA']).apply(lambda x: round(x, 3))
 
 def woba(row):
     uBB = row['BB'] - row['IBB']
-    return round((0.690 * uBB + 0.722 * row['HBP'] + 0.888 * row['1B'] + 1.271 * row['2B'] + 1.616 * row['3B'] + 2.101 * row['HR']) / (row['AB'] + uBB + row['SF'] + row['HBP']), 3)
+    return round((0.690 * uBB + 0.722 * row['HBP'] + 0.888 * row['1B'] + 1.271 * row['2B'] + 1.616 * row['3B'] + 2.101 *
+                  row['HR']) / (row['AB'] + uBB + row['SF'] + row['HBP']), 3)
 
 
 df['WOBA'] = df.apply(lambda row: mob(row), axis=1)
@@ -105,29 +106,78 @@ def twoba(row):
     uBB = row['BB'] - row['IBB']
 
     if (row['AB'] + uBB + row['SF'] + row['HBP'] - row['CS']) > 0:
-        return round((0.690 * uBB + 0.722 * row['HBP'] + 0.888 * row['1B'] + 1.271 * row['2B'] + 1.616 * row['3B'] + 2.101 * row['HR'] + wSB) / (row['AB'] + uBB + row['SF'] + row['HBP'] - row['CS']), 3)
+        return round((0.690 * uBB + 0.722 * row['HBP'] + 0.888 * row['1B'] + 1.271 * row['2B'] + 1.616 * row[
+            '3B'] + 2.101 * row['HR'] + wSB) / (row['AB'] + uBB + row['SF'] + row['HBP'] - row['CS']), 3)
 
 
 df['TWOBA'] = df.apply(lambda row: twoba(row), axis=1)
-
 
 # df.query('fullName == "Billy Hamilton" and franchise == "Cincinnati Reds"', inplace=True)
 # df.query('fullName == "Mike Trout"', inplace=True)
 
 
-cols = ['playerID', 'yearID', 'teamID', 'nameFirst', 'nameLast', 'fullName', 'franchise', 'G', 'AB', 'R', 'H', '1B', '2B', '3B', 'HR', 'RBI', 'SB', 'CS', 'BB', 'SO', 'IBB', 'HBP', 'SH', 'SF', 'GIDP', 'OBP', 'SLG', 'OPS', 'MOPS', 'WOBA', 'TWOBA']
-df = df[cols]
+# cols = ['playerID', 'yearID', 'teamID', 'nameFirst', 'nameLast', 'fullName', 'franchise', 'G', 'AB', 'R', 'H', '1B', '2B', '3B', 'HR', 'RBI', 'SB', 'CS', 'BB', 'SO', 'IBB', 'HBP', 'SH', 'SF', 'GIDP', 'OBP', 'SLG', 'OPS', 'MOPS', 'WOBA', 'TWOBA']
+# df = df[cols]
+
+# df.to_csv('EvanFrabell_MLBstats.csv', index=False)
+
+# df.query('fullName == "Eugenio Suarez"', inplace=True)
+# print(df)
 
 
-print(df)
+# Show df1 first
+df2 = df.copy()
 
-df.to_csv('EvanFrabell_MLBstats.csv', index=False)
+cols2 = ['yearID', 'franchise', 'fullName', 'AB', 'R', 'H', '1B', '2B', '3B', 'HR', 'RBI', 'SB', 'CS', 'BB', 'SO',
+         'IBB', 'HBP', 'SH', 'SF', 'GIDP']
+df2 = df2[cols2]
+# df2.reset_index()
 
-# print(df[df['fullName'].isin(['Jacoby Ellsbury', 'Billy Hamilton'])])
-# df = df[(df['fullName'] == 'Jacoby Ellsbury') & (df['yearID'] > 2012)]
+df2.sort_values(['yearID', 'franchise'], inplace=True)
 
+# df.groupby doesn't change df; it returns a new object. In this case you perform an aggregation operation, so you get a new DataFrame. You have to give a name to the result if you want to use it later:
+# df3 = df2.groupby(['yearID', 'franchise'])[['AB']].sum()
+
+# , as_index=False
+
+df3 = df2.groupby(['yearID', 'franchise']).agg(
+    {
+        'AB': sum,
+        'R': sum,
+        'H': sum,
+        '1B': sum,
+        '2B': sum,
+        '3B': sum,
+        'HR': sum,
+        'RBI': sum,
+        'SB': sum,
+        'CS': sum,
+        'BB': sum,
+        'SO': sum,
+        'IBB': sum,
+        'HBP': sum,
+        'SH': sum,
+        'SF': sum,
+        'GIDP': sum,
+    }
+)
+
+df3['OBP'] = ((df3['H'] + df3['BB'] + df3['HBP']) / (df3['AB'] + df3['BB'] + df3['HBP'] + df3['SF'])).apply(
+    lambda x: round(x, 3))
+df3['SLG'] = ((df3['1B'] + 2 * df3['2B'] + 3 * df3['3B'] + 4 * df3['HR']) / df3['AB']).apply(lambda x: round(x, 3))
+df3['OPS'] = df3.apply(lambda row: ops(row), axis=1)
+df3['MOB'] = df3.apply(lambda row: mob(row), axis=1)
+df3['MSA'] = ((df3['1B'] + 2 * df3['2B'] + 3 * df3['3B'] + 4 * df3['HR'] + df3['SB']) / df3['AB']).apply(lambda x: round(x, 3))
+df3['MOPS'] = (df3['MOB'] + df3['MSA']).apply(lambda x: round(x, 3))
+df3['WOBA'] = df3.apply(lambda row: mob(row), axis=1)
+df3['TWOBA'] = df3.apply(lambda row: twoba(row), axis=1)
+
+df3.drop(columns=['MOB', 'MSA'], axis=1, inplace=True)
+
+
+print(df3)
+
+# , index=False
+df3.to_csv('TeamStats.csv')
 
 # GOING by the data and neglecting fielding altogether - we can see that even with stolen bases Billy HAmilton does not add in great value to an offensive lineup based on the MOPS stat
-
-
-
